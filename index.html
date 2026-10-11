@@ -111,6 +111,28 @@
   }
   #tip.on { opacity: 1; }
 
+  /* music toggle */
+  #snd, #nxt {
+    position: fixed; top: 24px; right: 32px;
+    width: 36px; height: 36px; padding: 0;
+    background: transparent; color: var(--sage);
+    border: 1px solid rgba(143,169,143,.28); border-radius: 50%;
+    cursor: pointer; opacity: 0; transition: opacity .6s ease, border-color .2s ease;
+  }
+  #snd.on, #nxt.on { opacity: .85; }
+  #snd:hover, #nxt:hover { border-color: var(--sage); }
+  #snd svg, #nxt svg { width: 18px; height: 18px; display: block; margin: 0 auto; }
+  #nxt { right: 76px; }
+  #np {
+    position: fixed; top: 68px; right: 32px; max-width: 40%; text-align: right;
+    font-size: 12px; color: var(--text-dim);
+    opacity: 0; transition: opacity .8s ease;
+  }
+  #np.on { opacity: 1; }
+  #snd .slash { display: none; }
+  #snd.muted .waves { display: none; }
+  #snd.muted .slash { display: inline; }
+
   @media (prefers-reduced-motion: reduce) {
     .fog::before, .fog::after { animation: none; }
     h1 { animation: none; opacity: 1; }
@@ -131,6 +153,20 @@
     <div id="file"></div>
   </div></div>
 
+  <button id="nxt" type="button" title="Next track" aria-label="Next track">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 5l9 7-9 7V5z"/><path d="M18 5v14"/>
+    </svg>
+  </button>
+  <div id="np"></div>
+  <button id="snd" type="button" title="Toggle music" aria-label="Toggle music">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+      <path class="waves" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
+      <path class="slash" d="M17 9l5 6M22 9l-5 6"/>
+    </svg>
+  </button>
+
   <div class="corner left" id="cl">Map <b id="map"></b><br>Gamemode <b id="mode"></b></div>
   <div class="corner right" id="cr">Max players <b id="players"></b></div>
 
@@ -143,6 +179,12 @@
     "Follow Facepunch Studios ToS"
   ];
   var TIP_EVERY_MS = 6000;
+  // music: put the files next to this html file. Add as many tracks as you like.
+  // Order is shuffled each time. "title" is optional and shows briefly in the corner.
+  var MUSIC = [
+    { file: "background_music/Vaporwave.opus", title: "" }
+  ];
+  var MUSIC_VOLUME = 0.25;
   // --------------------
 
   var total = 0, needed = 0;
@@ -189,6 +231,92 @@
   }
   showTip();
   setInterval(showTip, TIP_EVERY_MS);
+
+  // background music
+  var order = [], pos = 0, audio = null, fadeTimer = null, npTimer = null;
+  var failures = 0, firstLoad = true;
+  var sndBtn = $("snd"), nxtBtn = $("nxt"), npEl = $("np");
+
+  function shuffle() {
+    order = [];
+    for (var i = 0; i < MUSIC.length; i++) order.push(i);
+    for (var j = order.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var t = order[j]; order[j] = order[k]; order[k] = t;
+    }
+  }
+  function fadeIn() {
+    var v = 0;
+    clearInterval(fadeTimer);
+    audio.volume = 0;
+    fadeTimer = setInterval(function () {
+      v += MUSIC_VOLUME / 30;
+      if (v >= MUSIC_VOLUME) { v = MUSIC_VOLUME; clearInterval(fadeTimer); }
+      audio.volume = v;
+    }, 100);
+  }
+  function showNowPlaying(title) {
+    if (!title) return;
+    npEl.textContent = title;
+    npEl.classList.add("on");
+    clearTimeout(npTimer);
+    npTimer = setTimeout(function () { npEl.classList.remove("on"); }, 6000);
+  }
+  function playCurrent() {
+    var track = MUSIC[order[pos]];
+    audio.src = encodeURI(track.file);
+    var p = audio.play();
+    if (p && p.catch) p.catch(function () { sndBtn.classList.add("muted"); });
+    showNowPlaying(track.title);
+  }
+  function nextTrack() {
+    pos++;
+    if (pos >= order.length) { shuffle(); pos = 0; }
+    playCurrent();
+  }
+
+  if (MUSIC.length > 0) {
+    shuffle();
+    audio = new Audio();
+    audio.addEventListener("ended", nextTrack);
+    audio.addEventListener("playing", function () { sndBtn.classList.remove("muted"); });
+    audio.addEventListener("loadedmetadata", function () {
+      // very long files (mixes): start somewhere random so it isn't always the intro
+      if (firstLoad && audio.duration > 600) {
+        audio.currentTime = Math.random() * (audio.duration - 300);
+      }
+      firstLoad = false;
+    });
+    audio.addEventListener("canplay", function () {
+      failures = 0;
+      sndBtn.classList.add("on");
+      if (MUSIC.length > 1) nxtBtn.classList.add("on");
+    });
+    audio.addEventListener("error", function () {
+      failures++;
+      if (failures <= MUSIC.length) nextTrack();
+      else { sndBtn.classList.remove("on"); nxtBtn.classList.remove("on"); }
+    });
+    playCurrent();
+    fadeIn();
+
+    sndBtn.addEventListener("click", function () {
+      if (audio.paused) {
+        audio.play();
+        fadeIn();
+        sndBtn.classList.remove("muted");
+      } else {
+        audio.pause();
+        sndBtn.classList.add("muted");
+      }
+    });
+    nxtBtn.addEventListener("click", function () {
+      var wasPaused = audio.paused;
+      nextTrack();
+      if (wasPaused) fadeIn();
+      sndBtn.classList.remove("muted");
+    });
+  }
 </script>
 </body>
 </html>
