@@ -111,40 +111,13 @@
   }
   #tip.on { opacity: 1; }
 
-  /* music toggle */
-  #snd, #nxt {
-    position: fixed; top: 24px; right: 32px;
-    width: 36px; height: 36px; padding: 0;
-    background: transparent; color: var(--sage);
-    border: 1px solid rgba(143,169,143,.28); border-radius: 50%;
-    cursor: pointer; opacity: 0; transition: opacity .6s ease, border-color .2s ease;
-  }
-  #snd.on, #nxt.on { opacity: .85; }
-  #snd:hover, #nxt:hover { border-color: var(--sage); }
-  #snd svg, #nxt svg { width: 18px; height: 18px; display: block; margin: 0 auto; }
-  #nxt { right: 76px; }
-  #vol {
-    position: fixed; top: 33px; right: 76px; width: 90px; height: 18px; margin: 0;
-    -webkit-appearance: none; appearance: none; background: transparent;
-    cursor: pointer; opacity: 0; transition: opacity .6s ease;
-  }
-  #nxt.on + #vol { right: 124px; }
-  #vol.on { opacity: .85; }
-  #vol:focus { outline: none; }
-  #vol::-webkit-slider-runnable-track { height: 2px; background: rgba(143,169,143,.28); border-radius: 2px; }
-  #vol::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
-    border-radius: 50%; background: var(--sage); box-shadow: 0 0 8px rgba(143,169,143,.6);
-  }
+  /* now playing label */
   #np {
-    position: fixed; top: 68px; right: 32px; max-width: 40%; text-align: right;
+    position: fixed; top: 32px; right: 32px; max-width: 40%; text-align: right;
     font-size: 12px; color: var(--text-dim);
     opacity: 0; transition: opacity .8s ease;
   }
   #np.on { opacity: 1; }
-  #snd .slash { display: none; }
-  #snd.muted .waves { display: none; }
-  #snd.muted .slash { display: inline; }
 
   @media (prefers-reduced-motion: reduce) {
     .fog::before, .fog::after { animation: none; }
@@ -166,20 +139,7 @@
     <div id="file"></div>
   </div></div>
 
-  <button id="nxt" type="button" title="Next track" aria-label="Next track">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 5l9 7-9 7V5z"/><path d="M18 5v14"/>
-    </svg>
-  </button>
-  <input id="vol" type="range" min="0" max="100" value="50" title="Music volume" aria-label="Music volume">
   <div id="np"></div>
-  <button id="snd" type="button" title="Toggle music" aria-label="Toggle music">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 9v6h4l5 4V5L8 9H4z"/>
-      <path class="waves" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
-      <path class="slash" d="M17 9l5 6M22 9l-5 6"/>
-    </svg>
-  </button>
 
   <div class="corner left" id="cl">Map <b id="map"></b><br>Gamemode <b id="mode"></b></div>
   <div class="corner right" id="cr">Max players <b id="players"></b></div>
@@ -193,18 +153,21 @@
     "Follow Facepunch Studios ToS"
   ];
   var TIP_EVERY_MS = 6000;
+  // music on/off: set to false for a regular silent loading screen (no controls shown)
+  var MUSIC_ENABLED = true;
+
   // music: put the files next to this html file. Add as many tracks as you like.
   // Order is shuffled each time. "title" is optional; without it the file name is shown.
   var MUSIC = [
-    { file: "background_music/Vaporwave_quiet.opus", title: "" }
+    { file: "background_music/Vaporwave_quiet.opus", title: "Vaporwave" }
   ];
-  var MUSIC_VOLUME = 0.1;  // loudest the music gets (0 to 1). Scaled by each player's own Music Volume setting
+  var MUSIC_VOLUME = 0.3;  // music level, 0 to 1, as a share of the player's PC volume (tuned for the -18dB quiet file). Also scaled by their in-game Music Volume
   // --------------------
 
   var total = 0, needed = 0;
-  var userVolume = 1, gain = 1, fading = false, audio = null;
+  var userVolume = 1, fading = false, audio = null;
   function applyVolume() {
-    if (audio && !fading) audio.volume = Math.min(1, MUSIC_VOLUME * userVolume * gain);
+    if (audio && !fading) audio.volume = Math.min(1, MUSIC_VOLUME * userVolume);
   }
   function $(id) { return document.getElementById(id); }
 
@@ -256,12 +219,10 @@
   showTip();
   setInterval(showTip, TIP_EVERY_MS);
 
-  // background music
+  // background music: plays on its own, no on-screen controls
   var order = [], pos = 0, fadeTimer = null, npTimer = null;
   var failures = 0, firstLoad = true;
-  var sndBtn = $("snd"), nxtBtn = $("nxt"), npEl = $("np"), volEl = $("vol");
-  // slider: middle is the default level, left is silent, right is double
-  volEl.addEventListener("input", function () { gain = volEl.value / 50; applyVolume(); });
+  var npEl = $("np");
 
   function shuffle() {
     order = [];
@@ -277,7 +238,7 @@
     fading = true;
     audio.volume = 0;
     fadeTimer = setInterval(function () {
-      var target = Math.min(1, MUSIC_VOLUME * userVolume * gain);
+      var target = Math.min(1, MUSIC_VOLUME * userVolume);
       v += MUSIC_VOLUME / 30;
       if (v >= target) { v = target; clearInterval(fadeTimer); fading = false; }
       audio.volume = v;
@@ -300,7 +261,7 @@
     var track = MUSIC[order[pos]];
     audio.src = encodeURI(track.file);
     var p = audio.play();
-    if (p && p.catch) p.catch(function () { sndBtn.classList.add("muted"); });
+    if (p && p.catch) p.catch(function () {});
     showNowPlaying(track.title || prettyName(track.file));
   }
   function nextTrack() {
@@ -309,11 +270,10 @@
     playCurrent();
   }
 
-  if (MUSIC.length > 0) {
+  if (MUSIC_ENABLED && MUSIC.length > 0) {
     shuffle();
     audio = new Audio();
     audio.addEventListener("ended", nextTrack);
-    audio.addEventListener("playing", function () { sndBtn.classList.remove("muted"); });
     audio.addEventListener("loadedmetadata", function () {
       // very long files (mixes): start somewhere random so it isn't always the intro
       if (firstLoad && audio.duration > 600) {
@@ -321,36 +281,13 @@
       }
       firstLoad = false;
     });
-    audio.addEventListener("canplay", function () {
-      failures = 0;
-      sndBtn.classList.add("on");
-      volEl.classList.add("on");
-      if (MUSIC.length > 1) nxtBtn.classList.add("on");
-    });
+    audio.addEventListener("canplay", function () { failures = 0; });
     audio.addEventListener("error", function () {
       failures++;
       if (failures <= MUSIC.length) nextTrack();
-      else { sndBtn.classList.remove("on"); nxtBtn.classList.remove("on"); volEl.classList.remove("on"); }
     });
     playCurrent();
     fadeIn();
-
-    sndBtn.addEventListener("click", function () {
-      if (audio.paused) {
-        audio.play();
-        fadeIn();
-        sndBtn.classList.remove("muted");
-      } else {
-        audio.pause();
-        sndBtn.classList.add("muted");
-      }
-    });
-    nxtBtn.addEventListener("click", function () {
-      var wasPaused = audio.paused;
-      nextTrack();
-      if (wasPaused) fadeIn();
-      sndBtn.classList.remove("muted");
-    });
   }
 </script>
 </body>
