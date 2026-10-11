@@ -111,14 +111,6 @@
   }
   #tip.on { opacity: 1; }
 
-  /* now playing label */
-  #np {
-    position: fixed; top: 32px; right: 32px; max-width: 40%; text-align: right;
-    font-size: 12px; color: var(--text-dim);
-    opacity: 0; transition: opacity .8s ease;
-  }
-  #np.on { opacity: 1; }
-
   @media (prefers-reduced-motion: reduce) {
     .fog::before, .fog::after { animation: none; }
     h1 { animation: none; opacity: 1; }
@@ -139,8 +131,6 @@
     <div id="file"></div>
   </div></div>
 
-  <div id="np"></div>
-
   <div class="corner left" id="cl">Map <b id="map"></b><br>Gamemode <b id="mode"></b></div>
   <div class="corner right" id="cr">Max players <b id="players"></b></div>
 
@@ -156,16 +146,16 @@
   // music on/off: set to false for a regular silent loading screen (no controls shown)
   var MUSIC_ENABLED = true;
 
-  // music: put the files next to this html file. Add as many tracks as you like.
-  // Order is shuffled each time. "title" is optional; without it the file name is shown.
+  // Audio paths are relative to this HTML file. Add more tracks if desired.
+  // Filenames and capitalization must match the files hosted on GitHub Pages.
   var MUSIC = [
-    { file: "Background_music/backround_song.opus", title: "welcome" }
+    { file: "background_music/backround_song.opus" }
   ];
-  var MUSIC_VOLUME = 0.3;  // music level, 0 to 1, as a share of the player's PC volume (tuned for the -18dB quiet file). Also scaled by their in-game Music Volume
+  var MUSIC_VOLUME = 0.3;  // 0–1; also scaled by the player's in-game Music Volume
   // --------------------
 
   var total = 0, needed = 0;
-  var userVolume = 1, fading = false, audio = null;
+  var userVolume = 1, fading = false, audio = null, fadeTimer = null;
   function applyVolume() {
     if (audio && !fading) audio.volume = Math.min(1, MUSIC_VOLUME * userVolume);
   }
@@ -219,10 +209,9 @@
   showTip();
   setInterval(showTip, TIP_EVERY_MS);
 
-  // background music: plays on its own, no on-screen controls
-  var order = [], pos = 0, fadeTimer = null, npTimer = null;
-  var failures = 0, firstLoad = true;
-  var npEl = $("np");
+  // Background music. No track-name display or permanent on-screen controls.
+  var order = [], pos = 0, failures = 0, firstLoad = true;
+  var attemptId = 0, attemptFailed = false, waitingForGesture = false;
 
   function shuffle() {
     order = [];
@@ -232,62 +221,111 @@
       var t = order[j]; order[j] = order[k]; order[k] = t;
     }
   }
+
   function fadeIn() {
-    var v = 0;
     clearInterval(fadeTimer);
     fading = true;
+    var elapsed = 0;
     audio.volume = 0;
     fadeTimer = setInterval(function () {
+      if (audio.paused) {
+        clearInterval(fadeTimer);
+        fading = false;
+        return;
+      }
+      elapsed += 100;
       var target = Math.min(1, MUSIC_VOLUME * userVolume);
-      v += MUSIC_VOLUME / 30;
-      if (v >= target) { v = target; clearInterval(fadeTimer); fading = false; }
-      audio.volume = v;
+      audio.volume = target * Math.min(1, elapsed / 3000);
+      if (elapsed >= 3000) {
+        clearInterval(fadeTimer);
+        fading = false;
+        applyVolume();
+      }
     }, 100);
   }
-  // no title given? build one from the file name
-  function prettyName(path) {
-    var n = path.split("/").pop().replace(/\.[^.]+$/, "");
-    try { n = decodeURIComponent(n); } catch (e) {}
-    return n.replace(/[-_]+/g, " ");
-  }
-  function showNowPlaying(title) {
-    if (!title) return;
-    npEl.textContent = title;
-    npEl.classList.add("on");
-    clearTimeout(npTimer);
-    npTimer = setTimeout(function () { npEl.classList.remove("on"); }, 6000);
-  }
-  function playCurrent() {
-    var track = MUSIC[order[pos]];
-    audio.src = encodeURI(track.file);
-    var p = audio.play();
-    if (p && p.catch) p.catch(function () {});
-    showNowPlaying(track.title || prettyName(track.file));
-  }
+
   function nextTrack() {
     pos++;
     if (pos >= order.length) { shuffle(); pos = 0; }
     playCurrent();
   }
 
+  function failTrack(reason) {
+    // A bad URL can trigger both an error event and a rejected play() promise.
+    // Count it only once so a single broken track cannot skip the whole playlist.
+    if (attemptFailed) return;
+    attemptFailed = true;
+    failures++;
+    if (failures < MUSIC.length) nextTrack();
+  }
+
+  function tryPlay() {
+    var id = attemptId;
+    try {
+      var result = audio.play();
+      if (result && typeof result.catch === "function") {
+        result.catch(function (err) {
+          // Ignore rejections from a previous track after src was changed.
+          if (id !== attemptId || attemptFailed) return;
+          if (err && err.name === "NotAllowedError") {
+            waitingForGesture = true;
+          } else if (!err || err.name !== "AbortError") {
+            failTrack(err);
+          }
+        });
+      }
+    } catch (err) {
+      if (err && err.name === "NotAllowedError") {
+        waitingForGesture = true;
+      } else {
+        failTrack(err);
+      }
+    }
+  }
+
+  function playCurrent() {
+    if (!audio || !order.length) return;
+    attemptId++;
+    attemptFailed = false;
+    waitingForGesture = false;
+    clearInterval(fadeTimer);
+    fading = false;
+    audio.volume = 0;
+    audio.src = encodeURI(MUSIC[order[pos]].file);
+    tryPlay();
+  }
+
+  // Only needed in browsers that refuse sound until a real user gesture.
+  function resumeOnInteraction() {
+    if (!waitingForGesture || !audio) return;
+    waitingForGesture = false;
+    tryPlay();
+  }
+  document.addEventListener("click", resumeOnInteraction);
+  document.addEventListener("keydown", resumeOnInteraction);
+
   if (MUSIC_ENABLED && MUSIC.length > 0) {
     shuffle();
     audio = new Audio();
+    audio.preload = "auto";
     audio.addEventListener("ended", nextTrack);
     audio.addEventListener("loadedmetadata", function () {
-      // very long files (mixes): start somewhere random so it isn't always the intro
-      if (firstLoad && audio.duration > 600) {
+      // For long mixes, avoid replaying the same intro on every connection.
+      if (firstLoad && isFinite(audio.duration) && audio.duration > 600) {
         audio.currentTime = Math.random() * (audio.duration - 300);
       }
       firstLoad = false;
     });
-    audio.addEventListener("canplay", function () { failures = 0; });
+    audio.addEventListener("playing", function () {
+      failures = 0;
+      waitingForGesture = false;
+      fadeIn();
+    });
     audio.addEventListener("error", function () {
-      failures++;
-      if (failures <= MUSIC.length) nextTrack();
+      var code = audio.error ? audio.error.code : "unknown";
+      failTrack("Media error code " + code + " (code 4 often means missing file or unsupported format)");
     });
     playCurrent();
-    fadeIn();
   }
 </script>
 </body>
