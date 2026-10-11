@@ -23,7 +23,7 @@
   }
 
   /* atmosphere: drifting sage fog, grain, vignette */
-  .fog, .grain, .vignette { position: fixed; inset: 0; pointer-events: none; }
+  .fog, .grain, .vignette { position: fixed; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
   .fog::before, .fog::after {
     content: ""; position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%;
     background: radial-gradient(circle, rgba(95,122,98,.22) 0%, rgba(95,122,98,0) 65%);
@@ -43,7 +43,7 @@
 
   /* center stack */
   .center {
-    position: fixed; inset: 0;
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 0 6vw; text-align: center;
   }
