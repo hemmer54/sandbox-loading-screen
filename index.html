@@ -23,7 +23,7 @@
   }
 
   /* atmosphere: drifting sage fog, grain, vignette */
-  .fog, .grain, .vignette { position: fixed; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
+  .fog, .grain, .vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
   .fog::before, .fog::after {
     content: ""; position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%;
     background: radial-gradient(circle, rgba(95,122,98,.22) 0%, rgba(95,122,98,0) 65%);
@@ -43,9 +43,12 @@
 
   /* center stack */
   .center {
-    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 0 6vw; text-align: center;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: table;
+  }
+  .cell {
+    display: table-cell; vertical-align: middle; text-align: center;
+    padding: 0 6vw;
   }
   h1 {
     font-size: clamp(36px, 7vw, 92px);
@@ -90,6 +93,7 @@
   }
 
   /* corner info */
+  .bar, .meta, #file { margin-left: auto; margin-right: auto; }
   .corner {
     position: fixed; bottom: 28px; font-size: 13px; color: var(--text-dim); line-height: 1.6;
   }
@@ -120,12 +124,12 @@
 
   <div id="tip"></div>
 
-  <div class="center">
+  <div class="center"><div class="cell">
     <h1 id="server">John's Sandbox Server</h1>
     <div class="bar"><div class="fill" id="fill"></div></div>
     <div class="meta"><span id="status">Connecting</span><span id="pct">0%</span></div>
     <div id="file"></div>
-  </div>
+  </div></div>
 
   <div class="corner left" id="cl">Map <b id="map"></b><br>Gamemode <b id="mode"></b></div>
   <div class="corner right" id="cr">Max players <b id="players"></b></div>
