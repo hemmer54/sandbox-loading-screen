@@ -123,6 +123,19 @@
   #snd:hover, #nxt:hover { border-color: var(--sage); }
   #snd svg, #nxt svg { width: 18px; height: 18px; display: block; margin: 0 auto; }
   #nxt { right: 76px; }
+  #vol {
+    position: fixed; top: 33px; right: 76px; width: 90px; height: 18px; margin: 0;
+    -webkit-appearance: none; appearance: none; background: transparent;
+    cursor: pointer; opacity: 0; transition: opacity .6s ease;
+  }
+  #nxt.on + #vol { right: 124px; }
+  #vol.on { opacity: .85; }
+  #vol:focus { outline: none; }
+  #vol::-webkit-slider-runnable-track { height: 2px; background: rgba(143,169,143,.28); border-radius: 2px; }
+  #vol::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
+    border-radius: 50%; background: var(--sage); box-shadow: 0 0 8px rgba(143,169,143,.6);
+  }
   #np {
     position: fixed; top: 68px; right: 32px; max-width: 40%; text-align: right;
     font-size: 12px; color: var(--text-dim);
@@ -158,6 +171,7 @@
       <path d="M6 5l9 7-9 7V5z"/><path d="M18 5v14"/>
     </svg>
   </button>
+  <input id="vol" type="range" min="0" max="100" value="50" title="Music volume" aria-label="Music volume">
   <div id="np"></div>
   <button id="snd" type="button" title="Toggle music" aria-label="Toggle music">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -182,22 +196,32 @@
   // music: put the files next to this html file. Add as many tracks as you like.
   // Order is shuffled each time. "title" is optional; without it the file name is shown.
   var MUSIC = [
-    { file: "background_music/Vaporwave_quiet.opus", title: "" }
+    { file: "background_music/Vaporwave-MACINTOSH-PLUS-420.opus", title: "MACINTOSH PLUS - 420" }
   ];
-  var MUSIC_VOLUME = 0.08;  // 0 to 1. Lower = quieter. 0.08 is background level
+  var MUSIC_VOLUME = 0.1;  // loudest the music gets (0 to 1). Scaled by each player's own Music Volume setting
   // --------------------
 
   var total = 0, needed = 0;
+  var userVolume = 1, gain = 1, fading = false, audio = null;
+  function applyVolume() {
+    if (audio && !fading) audio.volume = Math.min(1, MUSIC_VOLUME * userVolume * gain);
+  }
   function $(id) { return document.getElementById(id); }
 
   // Called by Garry's Mod
-  function GameDetails(servername, serverurl, mapname, maxplayers, steamid, gamemode) {
+  function GameDetails(servername, serverurl, mapname, maxplayers, steamid, gamemode, volume, language) {
     // server name is set in the HTML, so servername is intentionally ignored
     $("map").textContent = mapname;
     $("mode").textContent = gamemode;
     $("players").textContent = maxplayers;
     $("cl").classList.add("on");
     $("cr").classList.add("on");
+    // Gmod passes the player's own Music Volume setting (0 to 1); scale the music by it
+    var v = parseFloat(volume);
+    if (!isNaN(v)) {
+      userVolume = Math.max(0, Math.min(1, v));
+      applyVolume();
+    }
   }
   function SetFilesTotal(t) { total = t; updateProgress(); }
   function SetFilesNeeded(n) { needed = n; updateProgress(); }
@@ -233,9 +257,11 @@
   setInterval(showTip, TIP_EVERY_MS);
 
   // background music
-  var order = [], pos = 0, audio = null, fadeTimer = null, npTimer = null;
+  var order = [], pos = 0, fadeTimer = null, npTimer = null;
   var failures = 0, firstLoad = true;
-  var sndBtn = $("snd"), nxtBtn = $("nxt"), npEl = $("np");
+  var sndBtn = $("snd"), nxtBtn = $("nxt"), npEl = $("np"), volEl = $("vol");
+  // slider: middle is the default level, left is silent, right is double
+  volEl.addEventListener("input", function () { gain = volEl.value / 50; applyVolume(); });
 
   function shuffle() {
     order = [];
@@ -248,10 +274,12 @@
   function fadeIn() {
     var v = 0;
     clearInterval(fadeTimer);
+    fading = true;
     audio.volume = 0;
     fadeTimer = setInterval(function () {
+      var target = Math.min(1, MUSIC_VOLUME * userVolume * gain);
       v += MUSIC_VOLUME / 30;
-      if (v >= MUSIC_VOLUME) { v = MUSIC_VOLUME; clearInterval(fadeTimer); }
+      if (v >= target) { v = target; clearInterval(fadeTimer); fading = false; }
       audio.volume = v;
     }, 100);
   }
@@ -296,12 +324,13 @@
     audio.addEventListener("canplay", function () {
       failures = 0;
       sndBtn.classList.add("on");
+      volEl.classList.add("on");
       if (MUSIC.length > 1) nxtBtn.classList.add("on");
     });
     audio.addEventListener("error", function () {
       failures++;
       if (failures <= MUSIC.length) nextTrack();
-      else { sndBtn.classList.remove("on"); nxtBtn.classList.remove("on"); }
+      else { sndBtn.classList.remove("on"); nxtBtn.classList.remove("on"); volEl.classList.remove("on"); }
     });
     playCurrent();
     fadeIn();
