@@ -180,11 +180,11 @@
   ];
   var TIP_EVERY_MS = 6000;
   // music: put the files next to this html file. Add as many tracks as you like.
-  // Order is shuffled each time. "title" is optional and shows briefly in the corner.
+  // Order is shuffled each time. "title" is optional; without it the file name is shown.
   var MUSIC = [
-    { file: "background_music/Vaporwave.opus", title: "" }
+    { file: "background_music/Vaporwave-MACINTOSH-PLUS-420.opus", title: "MACINTOSH PLUS - 420" }
   ];
-  var MUSIC_VOLUME = 0.25;
+  var MUSIC_VOLUME = 0.08;  // 0 to 1. Lower = quieter. 0.08 is background level
   // --------------------
 
   var total = 0, needed = 0;
@@ -255,6 +255,12 @@
       audio.volume = v;
     }, 100);
   }
+  // no title given? build one from the file name
+  function prettyName(path) {
+    var n = path.split("/").pop().replace(/\.[^.]+$/, "");
+    try { n = decodeURIComponent(n); } catch (e) {}
+    return n.replace(/[-_]+/g, " ");
+  }
   function showNowPlaying(title) {
     if (!title) return;
     npEl.textContent = title;
@@ -267,7 +273,7 @@
     audio.src = encodeURI(track.file);
     var p = audio.play();
     if (p && p.catch) p.catch(function () { sndBtn.classList.add("muted"); });
-    showNowPlaying(track.title);
+    showNowPlaying(track.title || prettyName(track.file));
   }
   function nextTrack() {
     pos++;
