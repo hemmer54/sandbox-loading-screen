@@ -92,6 +92,29 @@
     min-height: 15px;
   }
 
+  /* Optional GIF: a restrained, sage-framed accent near the heading. */
+  #loading-gif {
+    display: block;
+    position: relative;
+    width: min(var(--gif-width, 300px), 70vw);
+    height: min(var(--gif-height, 150px), 24vh);
+    margin: 0 auto 24px;
+    overflow: hidden;
+    border-radius: var(--gif-radius, 10px);
+    pointer-events: none;
+    background: rgba(17,21,19,.8);
+  }
+  #loading-gif[hidden] { display: none; }
+  #loading-gif.framed {
+    border: 1px solid rgba(143,169,143,.25);
+    box-shadow: 0 8px 32px rgba(0,0,0,.35), 0 0 24px rgba(95,122,98,.10);
+  }
+  #loading-gif img {
+    display: block; width: 100%; height: 100%;
+    object-fit: contain;
+  }
+  #loading-gif.below-title { margin-top: 24px; margin-bottom: 0; }
+
   /* corner info */
   .bar, .meta, #file { margin-left: auto; margin-right: auto; }
   .corner {
@@ -111,6 +134,29 @@
   }
   #tip.on { opacity: 1; }
 
+  /* Track name is hidden unless enabled in MUSIC_SETTINGS. */
+  #now-playing {
+    position: fixed; top: 32px; right: 32px; max-width: 40%;
+    text-align: right; font-size: 12px; color: var(--text-dim);
+    opacity: 0; transition: opacity .6s ease; pointer-events: none;
+  }
+  #now-playing.on { opacity: 1; }
+
+  /* Optional visitor controls (hidden by default). */
+  #music-controls {
+    position: fixed; right: 32px; bottom: 80px; z-index: 3;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; background: var(--surface);
+    border: 1px solid var(--sage-dim); border-radius: 6px;
+    font-size: 12px; color: var(--text);
+  }
+  #music-controls[hidden] { display: none; }
+  #music-toggle {
+    background: transparent; border: 0; color: var(--text);
+    cursor: pointer; font: inherit;
+  }
+  #music-volume { width: 92px; accent-color: var(--sage); }
+
   @media (prefers-reduced-motion: reduce) {
     .fog::before, .fog::after { animation: none; }
     h1 { animation: none; opacity: 1; }
@@ -123,8 +169,10 @@
   <div class="vignette"></div>
 
   <div id="tip"></div>
+  <div id="now-playing" aria-live="off"></div>
 
-  <div class="center"><div class="cell">
+  <div class="center"><div class="cell" id="center-content">
+    <div id="loading-gif" hidden aria-hidden="true"><img id="loading-gif-image" alt=""></div>
     <h1 id="server">John's Sandbox Server</h1>
     <div class="bar"><div class="fill" id="fill"></div></div>
     <div class="meta"><span id="status">Connecting</span><span id="pct">0%</span></div>
@@ -133,6 +181,11 @@
 
   <div class="corner left" id="cl">Map <b id="map"></b><br>Gamemode <b id="mode"></b></div>
   <div class="corner right" id="cr">Max players <b id="players"></b></div>
+  <div id="music-controls" hidden>
+    <button type="button" id="music-toggle" aria-pressed="true">Music: On</button>
+    <label for="music-volume">Volume</label>
+    <input id="music-volume" type="range" min="0" max="100" step="1" value="30">
+  </div>
 
 <script>
   // ---- edit these ----
@@ -143,23 +196,72 @@
     "Follow Facepunch Studios ToS"
   ];
   var TIP_EVERY_MS = 6000;
-  // music on/off: set to false for a regular silent loading screen (no controls shown)
-  var MUSIC_ENABLED = true;
+  // MUSIC SETTINGS — change these values to customize the loading screen.
+  var MUSIC_SETTINGS = {
+    enabled: true,           // false = never play music automatically
+    showSongName: false,     // true = show the track name in the top-right corner
+    showControls: false,     // true = allow visitors to mute/unmute and change volume
+    volume: 0.30,            // 0.0–1.0; additionally scaled by GMod Music Volume
+    fadeInMs: 3000,         // 0 = no fade in
+    nameDurationMs: 6000,   // 0 = keep the song name visible while playing
+    shuffle: true           // false = playlist order
+  };
 
-  // Audio paths are relative to this HTML file. Add more tracks if desired.
-  // Filenames and capitalization must match the files hosted on GitHub Pages.
+  // Music paths are relative to this HTML file; capitalization must match.
+  // 'title' is only shown if showSongName is set to true.
   var MUSIC = [
-    { file: "background_music/backround_song.opus" }
+    { file: "background_music/backround_song.opus", title: "" }
   ];
-  var MUSIC_VOLUME = 0.3;  // 0–1; also scaled by the player's in-game Music Volume
+
+  // OPTIONAL GIF SETTINGS — disabled by default, so no GIF is requested.
+  // Put your own animated GIF at the configured file path, relative to index.html.
+  var GIF_SETTINGS = {
+    enabled: false,           // true = show the animation
+    file: "images/loading.gif",
+    placement: "aboveTitle", // "aboveTitle" or "belowTitle"
+    width: 300,               // maximum width in pixels (scales down on small screens)
+    height: 150,              // maximum height in pixels (scales down on small screens)
+    fit: "contain",          // "contain" (full image) or "cover" (fills frame, may crop)
+    opacity: 0.85,            // 0.0–1.0
+    framed: true,            // subtle sage border and shadow
+    radius: 10               // rounded corners in pixels
+  };
   // --------------------
 
   var total = 0, needed = 0;
   var userVolume = 1, fading = false, audio = null, fadeTimer = null;
+  var musicEnabled = !!MUSIC_SETTINGS.enabled;
+  var musicVolume = Math.max(0, Math.min(1, Number(MUSIC_SETTINGS.volume) || 0));
   function applyVolume() {
-    if (audio && !fading) audio.volume = Math.min(1, MUSIC_VOLUME * userVolume);
+    if (audio && !fading) audio.volume = Math.min(1, musicVolume * userVolume);
   }
   function $(id) { return document.getElementById(id); }
+
+  // Only create a media request when the GIF is explicitly enabled.
+  function initOptionalGif() {
+    if (!GIF_SETTINGS.enabled || !GIF_SETTINGS.file) return;
+    var frame = $("loading-gif");
+    var img = $("loading-gif-image");
+    var width = Number(GIF_SETTINGS.width);
+    var height = Number(GIF_SETTINGS.height);
+    var radius = Number(GIF_SETTINGS.radius);
+    var opacity = Number(GIF_SETTINGS.opacity);
+    frame.style.setProperty("--gif-width", (isFinite(width) && width > 0 ? width : 300) + "px");
+    frame.style.setProperty("--gif-height", (isFinite(height) && height > 0 ? height : 150) + "px");
+    frame.style.setProperty("--gif-radius", (isFinite(radius) && radius >= 0 ? radius : 10) + "px");
+    frame.style.opacity = isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 0.85;
+    img.style.objectFit = GIF_SETTINGS.fit === "cover" ? "cover" : "contain";
+    if (GIF_SETTINGS.framed) frame.classList.add("framed");
+    if (GIF_SETTINGS.placement === "belowTitle") {
+      frame.classList.add("below-title");
+      $("center-content").insertBefore(frame, $("server").nextSibling);
+    }
+    // A missing GIF should never leave a blank frame on the loading screen.
+    img.onerror = function () { frame.hidden = true; img.removeAttribute("src"); };
+    img.onload = function () { frame.hidden = false; };
+    img.src = GIF_SETTINGS.file;
+  }
+  initOptionalGif();
 
   // Called by Garry's Mod
   function GameDetails(servername, serverurl, mapname, maxplayers, steamid, gamemode, volume, language) {
@@ -209,34 +311,61 @@
   showTip();
   setInterval(showTip, TIP_EVERY_MS);
 
-  // Background music. No track-name display or permanent on-screen controls.
+  // Background music: silent failure handling, no autoplay notices or console output.
   var order = [], pos = 0, failures = 0, firstLoad = true;
   var attemptId = 0, attemptFailed = false, waitingForGesture = false;
+  var nameTimer = null;
 
   function shuffle() {
     order = [];
     for (var i = 0; i < MUSIC.length; i++) order.push(i);
+    if (!MUSIC_SETTINGS.shuffle) return;
     for (var j = order.length - 1; j > 0; j--) {
       var k = Math.floor(Math.random() * (j + 1));
       var t = order[j]; order[j] = order[k]; order[k] = t;
     }
   }
 
+  function hideSongName() {
+    clearTimeout(nameTimer);
+    $("now-playing").classList.remove("on");
+  }
+
+  function showSongName() {
+    if (!MUSIC_SETTINGS.showSongName || !musicEnabled || !order.length) return;
+    var track = MUSIC[order[pos]];
+    var title = track.title;
+    if (!title) {
+      title = track.file.split("/").pop().replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+      try { title = decodeURIComponent(title); } catch (e) {}
+    }
+    var el = $("now-playing");
+    el.textContent = title;
+    el.classList.add("on");
+    clearTimeout(nameTimer);
+    if (MUSIC_SETTINGS.nameDurationMs > 0) {
+      nameTimer = setTimeout(hideSongName, MUSIC_SETTINGS.nameDurationMs);
+    }
+  }
+
   function fadeIn() {
     clearInterval(fadeTimer);
+    fading = false;
+    if (!audio || !musicEnabled) return;
+    if (MUSIC_SETTINGS.fadeInMs <= 0) { applyVolume(); return; }
     fading = true;
     var elapsed = 0;
     audio.volume = 0;
     fadeTimer = setInterval(function () {
-      if (audio.paused) {
+      if (!musicEnabled || audio.paused) {
         clearInterval(fadeTimer);
         fading = false;
         return;
       }
       elapsed += 100;
-      var target = Math.min(1, MUSIC_VOLUME * userVolume);
-      audio.volume = target * Math.min(1, elapsed / 3000);
-      if (elapsed >= 3000) {
+      var target = Math.min(1, musicVolume * userVolume);
+      audio.volume = target * Math.min(1, elapsed / MUSIC_SETTINGS.fadeInMs);
+      if (elapsed >= MUSIC_SETTINGS.fadeInMs) {
         clearInterval(fadeTimer);
         fading = false;
         applyVolume();
@@ -245,87 +374,123 @@
   }
 
   function nextTrack() {
+    if (!musicEnabled || !order.length) return;
     pos++;
     if (pos >= order.length) { shuffle(); pos = 0; }
     playCurrent();
   }
 
-  function failTrack(reason) {
-    // A bad URL can trigger both an error event and a rejected play() promise.
-    // Count it only once so a single broken track cannot skip the whole playlist.
-    if (attemptFailed) return;
+  function failTrack() {
+    // An error event and a rejected play() promise can refer to the same failure.
+    if (attemptFailed || !musicEnabled) return;
     attemptFailed = true;
+    hideSongName();
     failures++;
     if (failures < MUSIC.length) nextTrack();
   }
 
   function tryPlay() {
+    if (!audio || !musicEnabled) return;
     var id = attemptId;
     try {
       var result = audio.play();
       if (result && typeof result.catch === "function") {
         result.catch(function (err) {
-          // Ignore rejections from a previous track after src was changed.
-          if (id !== attemptId || attemptFailed) return;
+          if (id !== attemptId || attemptFailed || !musicEnabled) return;
           if (err && err.name === "NotAllowedError") {
             waitingForGesture = true;
           } else if (!err || err.name !== "AbortError") {
-            failTrack(err);
+            failTrack();
           }
         });
       }
     } catch (err) {
-      if (err && err.name === "NotAllowedError") {
-        waitingForGesture = true;
-      } else {
-        failTrack(err);
-      }
+      if (err && err.name === "NotAllowedError") waitingForGesture = true;
+      else failTrack();
     }
   }
 
   function playCurrent() {
-    if (!audio || !order.length) return;
+    if (!audio || !musicEnabled || !order.length) return;
     attemptId++;
     attemptFailed = false;
     waitingForGesture = false;
     clearInterval(fadeTimer);
     fading = false;
+    hideSongName();
     audio.volume = 0;
     audio.src = encodeURI(MUSIC[order[pos]].file);
     tryPlay();
   }
 
-  // Only needed in browsers that refuse sound until a real user gesture.
+  function setMusicEnabled(enabled) {
+    musicEnabled = !!enabled;
+    if (!audio) return;
+    if (!musicEnabled) {
+      attemptId++;
+      waitingForGesture = false;
+      clearInterval(fadeTimer);
+      fading = false;
+      hideSongName();
+      audio.pause();
+    } else if (!audio.getAttribute("src")) {
+      playCurrent();
+    } else {
+      attemptFailed = false;
+      tryPlay();
+    }
+    updateMusicControls();
+  }
+
+  function updateMusicControls() {
+    var button = $("music-toggle");
+    button.textContent = musicEnabled ? "Music: On" : "Music: Off";
+    button.setAttribute("aria-pressed", musicEnabled ? "true" : "false");
+  }
+
+  if (MUSIC_SETTINGS.showControls) {
+    $("music-controls").hidden = false;
+    $("music-volume").value = Math.round(musicVolume * 100);
+    updateMusicControls();
+    $("music-toggle").addEventListener("click", function () {
+      setMusicEnabled(!musicEnabled);
+    });
+    $("music-volume").addEventListener("input", function () {
+      musicVolume = Number(this.value) / 100;
+      applyVolume();
+    });
+  }
+
+  // Some browsers require a user interaction to allow autoplay.
+  // No hint or message is displayed when this happens.
   function resumeOnInteraction() {
-    if (!waitingForGesture || !audio) return;
+    if (!waitingForGesture || !audio || !musicEnabled) return;
     waitingForGesture = false;
     tryPlay();
   }
   document.addEventListener("click", resumeOnInteraction);
   document.addEventListener("keydown", resumeOnInteraction);
 
-  if (MUSIC_ENABLED && MUSIC.length > 0) {
+  if (MUSIC.length > 0 && (musicEnabled || MUSIC_SETTINGS.showControls)) {
     shuffle();
     audio = new Audio();
     audio.preload = "auto";
-    audio.addEventListener("ended", nextTrack);
+    audio.addEventListener("ended", function () { hideSongName(); nextTrack(); });
     audio.addEventListener("loadedmetadata", function () {
-      // For long mixes, avoid replaying the same intro on every connection.
       if (firstLoad && isFinite(audio.duration) && audio.duration > 600) {
         audio.currentTime = Math.random() * (audio.duration - 300);
       }
       firstLoad = false;
     });
     audio.addEventListener("playing", function () {
+      if (!musicEnabled) return;
       failures = 0;
       waitingForGesture = false;
       fadeIn();
+      showSongName();
     });
-    audio.addEventListener("error", function () {
-      var code = audio.error ? audio.error.code : "unknown";
-      failTrack("Media error code " + code + " (code 4 often means missing file or unsupported format)");
-    });
-    playCurrent();
+    audio.addEventListener("error", function () { failTrack(); });
+    if (musicEnabled) playCurrent();
   }
 </script>
 </body>
