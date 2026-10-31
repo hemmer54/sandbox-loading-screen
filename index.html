@@ -6,185 +6,135 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root {
-    --bg: #0a0c0b;
-    --surface: #111513;
-    --sage: #8fa98f;
-    --sage-dim: #5f7a62;
-    --text: #c8d3c8;
-    --text-dim: #7d8a7e;
+    --bg: #202224;
+    --surface: #000;
+    --text: #fff;
+    --text-dim: #bcbcbc;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    width: 100%; height: 100%;
+    width: 100%; min-height: 100%;
     background: var(--bg);
     color: var(--text);
-    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    overflow: hidden;
+    font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
   }
+  body { min-height: 100vh; }
 
-  /* atmosphere: drifting sage fog, grain, vignette */
-  .fog, .grain, .vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-  .fog::before, .fog::after {
-    content: ""; position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%;
-    background: radial-gradient(circle, rgba(95,122,98,.22) 0%, rgba(95,122,98,0) 65%);
-    animation: drift 38s ease-in-out infinite alternate;
-  }
-  .fog::before { top: -25vmax; left: -20vmax; }
-  .fog::after  { bottom: -30vmax; right: -20vmax; animation-duration: 52s; animation-direction: alternate-reverse; opacity: .8; }
-  @keyframes drift {
-    from { transform: translate(0, 0) scale(1); }
-    to   { transform: translate(14vmax, 8vmax) scale(1.2); }
-  }
-  .grain {
-    opacity: .07;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  }
-  .vignette { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,.75) 100%); }
-
-  /* center stack */
   .center {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: table;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 96px 24px;
   }
-  .cell {
-    display: table-cell; vertical-align: middle; text-align: center;
-    padding: 0 6vw;
+  .cell { width: 100%; max-width: 720px; }
+  .panel {
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--text);
   }
+  .eyebrow {
+    display: flex; justify-content: space-between; gap: 16px;
+    font-size: 16px; line-height: 1.4;
+    text-transform: uppercase;
+  }
+  .eyebrow span:last-child { color: var(--text-dim); text-align: right; }
   h1 {
-    font-size: clamp(36px, 7vw, 92px);
-    font-weight: 300;
-    color: var(--sage);
-    text-shadow: 0 0 40px rgba(143,169,143,.28);
-    letter-spacing: .02em;
-    opacity: 0;
-    animation: arrive 2.4s cubic-bezier(.2,.7,.2,1) .2s forwards;
+    margin-top: 8px;
+    font-size: 22px; line-height: 1.3; font-weight: 700;
+    overflow-wrap: break-word;
   }
-  @keyframes arrive {
-    from { opacity: 0; letter-spacing: .28em; filter: blur(6px); }
-    to   { opacity: 1; letter-spacing: .02em; filter: blur(0); }
+  .meta {
+    margin-top: 12px;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    font-size: 16px; line-height: 1.4;
   }
-
+  #status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pct { flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .bar {
     position: relative;
-    width: min(420px, 60vw); height: 2px; margin-top: 38px;
-    background: rgba(143,169,143,.14);
-    border-radius: 2px;
+    height: 8px; margin-top: 12px;
+    border: 1px solid var(--text);
+  }
+  .bar::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(to right, transparent 0, transparent calc(10% - 1px), #000 calc(10% - 1px), #000 10%);
   }
   .fill {
     position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
-    background: var(--sage);
-    border-radius: 2px;
-    box-shadow: 0 0 10px 1px rgba(143,169,143,.7), 0 0 28px 4px rgba(143,169,143,.25);
-    transition: width .5s ease-out;
+    background: var(--text);
+    transition: width .3s ease-out;
   }
-  .meta {
-    margin-top: 18px; width: min(420px, 60vw);
-    display: flex; justify-content: space-between;
-    font-size: 13px; color: var(--text-dim);
-  }
-  #status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px; }
-  #pct { color: var(--sage); font-variant-numeric: tabular-nums; }
   #file {
-    margin-top: 10px; width: min(420px, 60vw);
-    font-family: Consolas, "Courier New", monospace;
-    font-size: 11px; color: var(--sage-dim);
-    text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    min-height: 15px;
+    margin-top: 12px; min-height: 22px;
+    font-size: 16px; line-height: 1.4; color: var(--text-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* Optional GIF: a restrained, sage-framed accent near the heading. */
   #loading-gif {
-    display: block;
-    position: relative;
-    width: min(var(--gif-width, 300px), 70vw);
+    width: min(var(--gif-width, 300px), 100%);
     height: min(var(--gif-height, 150px), 24vh);
-    margin: 0 auto 24px;
-    overflow: hidden;
-    border-radius: var(--gif-radius, 10px);
-    pointer-events: none;
-    background: rgba(17,21,19,.8);
+    margin: 0 auto 16px;
+    overflow: hidden; border-radius: var(--gif-radius, 0px);
+    pointer-events: none; background: #000;
   }
   #loading-gif[hidden] { display: none; }
-  #loading-gif.framed {
-    border: 1px solid rgba(143,169,143,.25);
-    box-shadow: 0 8px 32px rgba(0,0,0,.35), 0 0 24px rgba(95,122,98,.10);
-  }
-  #loading-gif img {
-    display: block; width: 100%; height: 100%;
-    object-fit: contain;
-  }
-  #loading-gif.below-title { margin-top: 24px; margin-bottom: 0; }
+  #loading-gif.framed { border: 1px solid var(--text); }
+  #loading-gif img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  #loading-gif.below-title { margin-top: 16px; margin-bottom: 0; }
 
-  /* corner info */
-  .bar, .meta, #file { margin-left: auto; margin-right: auto; }
-  .corner {
-    position: fixed; bottom: 28px; font-size: 13px; color: var(--text-dim); line-height: 1.6;
+  .server-info {
+    display: flex; justify-content: space-between; gap: 24px;
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid #555;
   }
-  .corner b { color: var(--text); font-weight: 400; }
-  .corner { opacity: 0; transition: opacity 1s ease; }
-  .corner.on { opacity: 1; }
-  .left { left: 32px; }
-  .right { right: 32px; text-align: right; }
+  .corner { font-size: 16px; line-height: 1.6; color: var(--text-dim); min-width: 0; }
+  .corner b { color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+  .corner { visibility: hidden; }
+  .corner.on { visibility: visible; }
+  .right { text-align: right; }
 
-  /* rotating tips */
   #tip {
-    position: fixed; top: 32px; left: 0; right: 0; text-align: center;
-    font-size: 13px; color: var(--text-dim);
-    transition: opacity .8s ease; opacity: 0;
+    position: absolute; top: 24px; left: 24px; right: 24px;
+    max-width: 720px; margin: 0 auto; padding: 12px 16px;
+    border: 1px solid var(--text); background: var(--surface);
+    font-size: 16px; line-height: 1.4;
+    transition: opacity .3s ease; opacity: 0;
   }
   #tip.on { opacity: 1; }
-
-  /* Track name is hidden unless enabled in MUSIC_SETTINGS. */
-  #now-playing {
-    position: fixed; top: 32px; right: 32px; max-width: 40%;
-    text-align: right; font-size: 12px; color: var(--text-dim);
-    opacity: 0; transition: opacity .6s ease; pointer-events: none;
+  @media (max-width: 480px) {
+    .center { padding: 112px 16px 32px; }
+    .eyebrow { font-size: 14px; }
+    .server-info { flex-direction: column; gap: 8px; }
+    .right { text-align: left; }
+    #tip { left: 16px; right: 16px; }
   }
-  #now-playing.on { opacity: 1; }
-
-  /* Optional visitor controls (hidden by default). */
-  #music-controls {
-    position: fixed; right: 32px; bottom: 80px; z-index: 3;
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 12px; background: var(--surface);
-    border: 1px solid var(--sage-dim); border-radius: 6px;
-    font-size: 12px; color: var(--text);
+  @media (max-height: 600px) {
+    .center { padding-top: 24px; padding-bottom: 24px; }
+    #tip { position: relative; top: auto; bottom: auto; left: auto; right: auto; width: calc(100% - 48px); margin: 16px auto; }
+    .center { min-height: 0; }
   }
-  #music-controls[hidden] { display: none; }
-  #music-toggle {
-    background: transparent; border: 0; color: var(--text);
-    cursor: pointer; font: inherit;
-  }
-  #music-volume { width: 92px; accent-color: var(--sage); }
-
   @media (prefers-reduced-motion: reduce) {
-    .fog::before, .fog::after { animation: none; }
-    h1 { animation: none; opacity: 1; }
+    .fill, #tip { transition: none; }
   }
 </style>
 </head>
 <body>
-  <div class="fog"></div>
-  <div class="grain"></div>
-  <div class="vignette"></div>
-
   <div id="tip"></div>
-  <div id="now-playing" aria-live="off"></div>
 
-  <div class="center"><div class="cell" id="center-content">
-    <div id="loading-gif" hidden aria-hidden="true"><img id="loading-gif-image" alt=""></div>
-    <h1 id="server">John's Sandbox Server</h1>
-    <div class="bar"><div class="fill" id="fill"></div></div>
-    <div class="meta"><span id="status">Connecting</span><span id="pct">0%</span></div>
-    <div id="file"></div>
-  </div></div>
-
-  <div class="corner left" id="cl">Map <b id="map"></b><br>Gamemode <b id="mode"></b></div>
-  <div class="corner right" id="cr">Max players <b id="players"></b></div>
-  <div id="music-controls" hidden>
-    <button type="button" id="music-toggle" aria-pressed="true">Music: On</button>
-    <label for="music-volume">Volume</label>
-    <input id="music-volume" type="range" min="0" max="100" step="1" value="30">
+  <div class="center">
+    <div class="cell">
+      <div class="panel" id="center-content">
+        <div class="eyebrow"><span>Sandbox</span><span>Server connection</span></div>
+        <div id="loading-gif" hidden aria-hidden="true"><img id="loading-gif-image" alt=""></div>
+        <h1 id="server">John's Sandbox Server</h1>
+        <div class="meta"><span id="status">Connecting</span><span id="pct">0%</span></div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <div id="file"></div>
+        <div class="server-info">
+          <div class="corner left" id="cl">Map <b id="map"></b> &middot; Gamemode <b id="mode"></b></div>
+          <div class="corner right" id="cr">Max players <b id="players"></b></div>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -196,23 +146,6 @@
     "Follow Facepunch Studios ToS"
   ];
   var TIP_EVERY_MS = 6000;
-  // MUSIC SETTINGS — change these values to customize the loading screen.
-  var MUSIC_SETTINGS = {
-    enabled: true,           // false = never play music automatically
-    showSongName: false,     // true = show the track name in the top-right corner
-    showControls: false,     // true = allow visitors to mute/unmute and change volume
-    volume: 0.30,            // 0.0–1.0; additionally scaled by GMod Music Volume
-    fadeInMs: 3000,         // 0 = no fade in
-    nameDurationMs: 6000,   // 0 = keep the song name visible while playing
-    shuffle: true           // false = playlist order
-  };
-
-  // Music paths are relative to this HTML file; capitalization must match.
-  // 'title' is only shown if showSongName is set to true.
-  var MUSIC = [
-    { file: "background_music/backround_song.opus", title: "" }
-  ];
-
   // OPTIONAL GIF SETTINGS — disabled by default, so no GIF is requested.
   // Put your own animated GIF at the configured file path, relative to index.html.
   var GIF_SETTINGS = {
@@ -223,18 +156,12 @@
     height: 150,              // maximum height in pixels (scales down on small screens)
     fit: "contain",          // "contain" (full image) or "cover" (fills frame, may crop)
     opacity: 0.85,            // 0.0–1.0
-    framed: true,            // subtle sage border and shadow
-    radius: 10               // rounded corners in pixels
+    framed: true,            // thin white border
+    radius: 0                // square corners; increase for rounded corners
   };
   // --------------------
 
   var total = 0, needed = 0;
-  var userVolume = 1, fading = false, audio = null, fadeTimer = null;
-  var musicEnabled = !!MUSIC_SETTINGS.enabled;
-  var musicVolume = Math.max(0, Math.min(1, Number(MUSIC_SETTINGS.volume) || 0));
-  function applyVolume() {
-    if (audio && !fading) audio.volume = Math.min(1, musicVolume * userVolume);
-  }
   function $(id) { return document.getElementById(id); }
 
   // Only create a media request when the GIF is explicitly enabled.
@@ -248,7 +175,7 @@
     var opacity = Number(GIF_SETTINGS.opacity);
     frame.style.setProperty("--gif-width", (isFinite(width) && width > 0 ? width : 300) + "px");
     frame.style.setProperty("--gif-height", (isFinite(height) && height > 0 ? height : 150) + "px");
-    frame.style.setProperty("--gif-radius", (isFinite(radius) && radius >= 0 ? radius : 10) + "px");
+    frame.style.setProperty("--gif-radius", (isFinite(radius) && radius >= 0 ? radius : 0) + "px");
     frame.style.opacity = isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 0.85;
     img.style.objectFit = GIF_SETTINGS.fit === "cover" ? "cover" : "contain";
     if (GIF_SETTINGS.framed) frame.classList.add("framed");
@@ -271,12 +198,7 @@
     $("players").textContent = maxplayers;
     $("cl").classList.add("on");
     $("cr").classList.add("on");
-    // Gmod passes the player's own Music Volume setting (0 to 1); scale the music by it
-    var v = parseFloat(volume);
-    if (!isNaN(v)) {
-      userVolume = Math.max(0, Math.min(1, v));
-      applyVolume();
-    }
+
   }
   function SetFilesTotal(t) { total = t; updateProgress(); }
   function SetFilesNeeded(n) { needed = n; updateProgress(); }
@@ -311,187 +233,6 @@
   showTip();
   setInterval(showTip, TIP_EVERY_MS);
 
-  // Background music: silent failure handling, no autoplay notices or console output.
-  var order = [], pos = 0, failures = 0, firstLoad = true;
-  var attemptId = 0, attemptFailed = false, waitingForGesture = false;
-  var nameTimer = null;
-
-  function shuffle() {
-    order = [];
-    for (var i = 0; i < MUSIC.length; i++) order.push(i);
-    if (!MUSIC_SETTINGS.shuffle) return;
-    for (var j = order.length - 1; j > 0; j--) {
-      var k = Math.floor(Math.random() * (j + 1));
-      var t = order[j]; order[j] = order[k]; order[k] = t;
-    }
-  }
-
-  function hideSongName() {
-    clearTimeout(nameTimer);
-    $("now-playing").classList.remove("on");
-  }
-
-  function showSongName() {
-    if (!MUSIC_SETTINGS.showSongName || !musicEnabled || !order.length) return;
-    var track = MUSIC[order[pos]];
-    var title = track.title;
-    if (!title) {
-      title = track.file.split("/").pop().replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
-      try { title = decodeURIComponent(title); } catch (e) {}
-    }
-    var el = $("now-playing");
-    el.textContent = title;
-    el.classList.add("on");
-    clearTimeout(nameTimer);
-    if (MUSIC_SETTINGS.nameDurationMs > 0) {
-      nameTimer = setTimeout(hideSongName, MUSIC_SETTINGS.nameDurationMs);
-    }
-  }
-
-  function fadeIn() {
-    clearInterval(fadeTimer);
-    fading = false;
-    if (!audio || !musicEnabled) return;
-    if (MUSIC_SETTINGS.fadeInMs <= 0) { applyVolume(); return; }
-    fading = true;
-    var elapsed = 0;
-    audio.volume = 0;
-    fadeTimer = setInterval(function () {
-      if (!musicEnabled || audio.paused) {
-        clearInterval(fadeTimer);
-        fading = false;
-        return;
-      }
-      elapsed += 100;
-      var target = Math.min(1, musicVolume * userVolume);
-      audio.volume = target * Math.min(1, elapsed / MUSIC_SETTINGS.fadeInMs);
-      if (elapsed >= MUSIC_SETTINGS.fadeInMs) {
-        clearInterval(fadeTimer);
-        fading = false;
-        applyVolume();
-      }
-    }, 100);
-  }
-
-  function nextTrack() {
-    if (!musicEnabled || !order.length) return;
-    pos++;
-    if (pos >= order.length) { shuffle(); pos = 0; }
-    playCurrent();
-  }
-
-  function failTrack() {
-    // An error event and a rejected play() promise can refer to the same failure.
-    if (attemptFailed || !musicEnabled) return;
-    attemptFailed = true;
-    hideSongName();
-    failures++;
-    if (failures < MUSIC.length) nextTrack();
-  }
-
-  function tryPlay() {
-    if (!audio || !musicEnabled) return;
-    var id = attemptId;
-    try {
-      var result = audio.play();
-      if (result && typeof result.catch === "function") {
-        result.catch(function (err) {
-          if (id !== attemptId || attemptFailed || !musicEnabled) return;
-          if (err && err.name === "NotAllowedError") {
-            waitingForGesture = true;
-          } else if (!err || err.name !== "AbortError") {
-            failTrack();
-          }
-        });
-      }
-    } catch (err) {
-      if (err && err.name === "NotAllowedError") waitingForGesture = true;
-      else failTrack();
-    }
-  }
-
-  function playCurrent() {
-    if (!audio || !musicEnabled || !order.length) return;
-    attemptId++;
-    attemptFailed = false;
-    waitingForGesture = false;
-    clearInterval(fadeTimer);
-    fading = false;
-    hideSongName();
-    audio.volume = 0;
-    audio.src = encodeURI(MUSIC[order[pos]].file);
-    tryPlay();
-  }
-
-  function setMusicEnabled(enabled) {
-    musicEnabled = !!enabled;
-    if (!audio) return;
-    if (!musicEnabled) {
-      attemptId++;
-      waitingForGesture = false;
-      clearInterval(fadeTimer);
-      fading = false;
-      hideSongName();
-      audio.pause();
-    } else if (!audio.getAttribute("src")) {
-      playCurrent();
-    } else {
-      attemptFailed = false;
-      tryPlay();
-    }
-    updateMusicControls();
-  }
-
-  function updateMusicControls() {
-    var button = $("music-toggle");
-    button.textContent = musicEnabled ? "Music: On" : "Music: Off";
-    button.setAttribute("aria-pressed", musicEnabled ? "true" : "false");
-  }
-
-  if (MUSIC_SETTINGS.showControls) {
-    $("music-controls").hidden = false;
-    $("music-volume").value = Math.round(musicVolume * 100);
-    updateMusicControls();
-    $("music-toggle").addEventListener("click", function () {
-      setMusicEnabled(!musicEnabled);
-    });
-    $("music-volume").addEventListener("input", function () {
-      musicVolume = Number(this.value) / 100;
-      applyVolume();
-    });
-  }
-
-  // Some browsers require a user interaction to allow autoplay.
-  // No hint or message is displayed when this happens.
-  function resumeOnInteraction() {
-    if (!waitingForGesture || !audio || !musicEnabled) return;
-    waitingForGesture = false;
-    tryPlay();
-  }
-  document.addEventListener("click", resumeOnInteraction);
-  document.addEventListener("keydown", resumeOnInteraction);
-
-  if (MUSIC.length > 0 && (musicEnabled || MUSIC_SETTINGS.showControls)) {
-    shuffle();
-    audio = new Audio();
-    audio.preload = "auto";
-    audio.addEventListener("ended", function () { hideSongName(); nextTrack(); });
-    audio.addEventListener("loadedmetadata", function () {
-      if (firstLoad && isFinite(audio.duration) && audio.duration > 600) {
-        audio.currentTime = Math.random() * (audio.duration - 300);
-      }
-      firstLoad = false;
-    });
-    audio.addEventListener("playing", function () {
-      if (!musicEnabled) return;
-      failures = 0;
-      waitingForGesture = false;
-      fadeIn();
-      showSongName();
-    });
-    audio.addEventListener("error", function () { failTrack(); });
-    if (musicEnabled) playCurrent();
-  }
 </script>
 </body>
 </html>
