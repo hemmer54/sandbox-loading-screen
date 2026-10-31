@@ -18,7 +18,18 @@
     color: var(--text);
     font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
   }
-  body { min-height: 100vh; }
+  body {
+    min-height: 100vh;
+    background-color: #111214;
+    background-image:
+      radial-gradient(ellipse at center, transparent 20%, rgba(0, 0, 0, .7) 100%),
+      linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px),
+      radial-gradient(ellipse at 50% 45%, #303336 0%, #111214 75%);
+    background-size: 100% 100%, 80px 80px, 80px 80px, 100% 100%;
+    background-position: center;
+    background-attachment: fixed;
+  }
 
   .center {
     min-height: 100vh;
@@ -225,14 +236,3 @@
     var el = $("tip");
     el.classList.remove("on");
     setTimeout(function () {
-      el.textContent = TIPS[tipIndex % TIPS.length];
-      tipIndex++;
-      el.classList.add("on");
-    }, 800);
-  }
-  showTip();
-  setInterval(showTip, TIP_EVERY_MS);
-
-</script>
-</body>
-</html>
