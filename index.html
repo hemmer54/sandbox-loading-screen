@@ -218,6 +218,9 @@
   }
   function SetStatusChanged(status) {
     $("status").textContent = status;
+    var addon = status.match(/(?:Downloading|Downloaded!)\s+'(.+)'\s*$/i);
+    if (addon) $("file").textContent = "Workshop content '" + addon[1] + "'";
+    if (/workshop complete/i.test(status)) $("file").textContent = "";
     if (status.toLowerCase().indexOf("sending client info") !== -1) setPct(100);
   }
 
